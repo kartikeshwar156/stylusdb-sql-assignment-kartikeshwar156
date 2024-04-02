@@ -6,25 +6,22 @@ const readCSV = require('./csvReader');
 async function executeSELECTQuery(query) {
     const { fields, table, whereClause } = parseQuery(query);
     const data = await readCSV(`${table}.csv`);
-
-    // Parse the whereClause into column and value
-    let [whereColumn, whereValue] = whereClause ? whereClause.split('=') : [null, null];
-    whereColumn = whereColumn ? whereColumn.trim() : null;
-    whereValue = whereValue ? whereValue.trim().replace(/'/g, '') : null;  // Remove quotes from value
-
     
+    // Filtering based on WHERE clause
+    const filteredData = whereClause
+        ? data.filter(row => {
+            const [field, value] = whereClause.split('=').map(s => s.trim());
+            return row[field] === value;
+        })
+        : data;
 
-    // Filter the data based on the whereClause
-    const filteredData = whereColumn ? data.filter(row => row[whereColumn] === whereValue) : data;
-
-    
-    // Filter the fields based on the query
+    // Selecting the specified fields
     return filteredData.map(row => {
-        const filteredRow = {};
+        const selectedRow = {};
         fields.forEach(field => {
-            filteredRow[field] = row[field];
+            selectedRow[field] = row[field];
         });
-        return filteredRow;
+        return selectedRow;
     });
 }
 

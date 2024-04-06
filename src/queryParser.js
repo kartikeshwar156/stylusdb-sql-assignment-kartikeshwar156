@@ -7,6 +7,25 @@ function parseQuery(query) {
 	console.log(12345)
 	query = query.trim();
 
+	const groupByRegex = /\sGROUP BY\s(.+)/i;
+   const groupByMatch = query.match(groupByRegex);
+
+   let groupByFields = null;
+   if (groupByMatch) {
+      groupByFields = groupByMatch[1].split(',').map(field => field.trim());
+   }
+
+	const groupsplit = query.split(/\sGROUP BY\s(.+)/i);
+	query=groupsplit[0];
+
+	let hasAggregateWithoutGroupBy= false;
+	let hasAggregate = checkAggregateFunctions(query);
+
+	if(hasAggregate && !groupByMatch)
+	{
+		hasAggregateWithoutGroupBy=true;
+	}
+
 	// Initialize variables for different parts of the query
 	let selectPart, fromPart;
 
@@ -16,6 +35,8 @@ function parseQuery(query) {
 
 	// WHERE clause is the second part after splitting, if it exists
 	const whereClause = whereSplit.length > 1 ? whereSplit[1].trim() : null;
+
+	
 
 	// Split the remaining query at the JOIN clause if it exists
 	const joinSplit = query.split(/\s(INNER|LEFT|RIGHT) JOIN\s/i);
@@ -74,7 +95,9 @@ function parseQuery(query) {
 		 whereClauses,
 		 joinTable,
 		 joinCondition,
-		 joinType
+		 joinType,
+		 groupByFields,
+		 hasAggregateWithoutGroupBy
 	};
 }
 
@@ -84,11 +107,39 @@ function parseWhereClause(whereString) {
 	return whereString.split(/ AND | OR /i).map(conditionString => {
 		 const match = conditionString.match(conditionRegex);
 		 if (match) {
-			  const [, field, operator, value] = match;
-			  return { field: field.trim(), operator, value: value.trim() };
+			  let [, field, operator, value] = match;
+			// for string search in where
+			//   value = parseIfJSON(value);
+
+			return { field: field.trim(), operator, value: value.trim() };
+
 		 }
 		 throw new Error('Invalid WHERE clause format');
 	});
+}
+
+function checkAggregateFunctions(query) {
+	const aggregateFunctions = ["AVG", "COUNT", "SUM", "MIN", "MAX"];
+	const upperCaseQuery = query.toUpperCase();
+
+	for (let i = 0; i < aggregateFunctions.length; i++) {
+		 if (upperCaseQuery.includes(aggregateFunctions[i])) {
+			  return true;
+		 }
+	}
+
+	return false;
+}
+
+function parseIfJSON(value) {
+	try {
+		 // Try to parse the value
+		 let parsedValue = JSON.parse(value);
+		 return parsedValue;
+	} catch (e) {
+		 // If it's not a valid JSON string, return the original value
+		 return value;
+	}
 }
 
 function parseJoinClause(query) {
@@ -114,4 +165,4 @@ function parseJoinClause(query) {
 }
 
 
-module.exports = parseQuery;
+module.exports = {parseQuery, parseJoinClause};
